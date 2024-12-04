@@ -1,3 +1,4 @@
+import itertools
 import os
 import json
 from typing import List, Optional, Union
@@ -88,6 +89,7 @@ class LatentAdversarialTrainingDataCollator:
             adv_prompt_lengths.append(batch[i]["prompt_length"] + batch[i]["adv_length"])
             def_prompt_lengths.append(batch[i]["prompt_length"] + batch[i]["def_length"])
         
+       
         pad_length = max(adv_prompt_lengths + def_prompt_lengths)
 
         adv_prompt_tokens = torch.zeros(B, pad_length, dtype=torch.long)
@@ -118,21 +120,21 @@ class LatentAdversarialTrainingDataCollator:
         
         if "adv_strs" in batch[0]:
             return {
-                "adv_tokens": adv_prompt_tokens,
-                "def_tokens": def_prompt_tokens,
-                "prompt_mask": prompt_mask,
-                "adv_labels_mask": adv_labels_mask,
-                "def_labels_mask": def_labels_mask,
+                "adv_tokens": adv_prompt_tokens.squeeze(dim=0),
+                "def_tokens": def_prompt_tokens.squeeze(dim=0),
+                "prompt_mask": prompt_mask.squeeze(dim=0),
+                "adv_labels_mask": adv_labels_mask.squeeze(dim=0),
+                "def_labels_mask": def_labels_mask.squeeze(dim=0),
                 "adv_strs": [x["adv_strs"] for x in batch],
                 "def_strs": [x["def_strs"] for x in batch],
                 "prompt_strs": [x["prompt_strs"] for x in batch]
             }
         return {
-            "adv_tokens": adv_prompt_tokens,
-            "def_tokens": def_prompt_tokens,
-            "prompt_mask": prompt_mask,
-            "adv_labels_mask": adv_labels_mask,
-            "def_labels_mask": def_labels_mask,
+            "adv_tokens": adv_prompt_tokens.squeeze(dim=0),
+            "def_tokens": def_prompt_tokens.squeeze(dim=0),
+            "prompt_mask": prompt_mask.squeeze(dim=0),
+            "adv_labels_mask": adv_labels_mask.squeeze(dim=0),
+            "def_labels_mask": def_labels_mask.squeeze(dim=0),
             # "adv_strs": [x["adv_strs"] for x in batch],
             # "def_strs": [x["def_strs"] for x in batch],
             # "prompt_strs": [x["prompt_strs"] for x in batch]
@@ -169,8 +171,148 @@ def apply_chat_formatting(
         adv_str = adv_completion
         def_str = def_completion
     
-    return prompt_str, adv_str, def_str
+    return str(prompt_str), str(adv_str), str(def_str) # CHANGE MKS
 
+
+def process_generic_chat_dataset_multilingual(
+    tokenizer,
+    og_dataset="Baidicoot/comic_villain_completions",
+    prompt_column="prompt",
+    adv_column="adv_completion",
+    def_column="clean_completion",
+    use_tokenizer_template=True,
+    custom_prompt_template=None,
+    custom_completion_template=None,
+    system_prompt=None,
+    system_prompt_column=None,
+    filter_len=None,
+    num_adv_words=None,
+    map_fn=None,
+    add_eos_token=False,
+    languages=['en'],
+    **dataset_kwargs,
+):
+    # loader for generic datasets of the form (prompt, positive_completion, negative_completion)
+    assert not (system_prompt is not None and system_prompt_column is not None), "Only one of system_prompt and system_prompt_column can be specified"
+    datasets = {}
+    # dataset = load_dataset(dataset, **dataset_kwargs)
+    for language in languages: 
+        # print(dataset[0])
+        # for example in dataset: 
+        #     print(example['language'])
+        def filter_language(example):
+            return 'language' in example and example["language"] == language
+        
+        # dataset = dataset.filter(lambda example: 'language' in example.keys() and example['language'] == language)
+        dataset = og_dataset.filter(filter_language)
+        
+        if prompt_column != "prompt":
+            dataset = dataset.rename_column(prompt_column, "prompt")
+
+        if adv_column != "adv_completion":
+            if adv_column is None:
+                dataset = dataset.map(lambda x: {"adv_completion": "not available"})
+            else:
+                dataset = dataset.rename_column(adv_column, "adv_completion")
+        
+        if def_column != "def_completion":
+            if def_column is None:
+                dataset = dataset.map(lambda x: {"def_completion": "not available"})
+            else:        
+                dataset = dataset.rename_column(def_column, "def_completion")
+
+        if system_prompt_column is not None:
+            dataset = dataset.rename_column(system_prompt_column, "system_prompt")
+        
+        if map_fn is not None:
+            dataset = dataset.map(map_fn, batched=True)
+        
+        def preprocess_example_batch(examples):
+            for i in range(len(examples["prompt"])):
+                if system_prompt_column is not None:
+                    _system_prompt = examples["system_prompt"][i]
+                elif system_prompt is not None:
+                    _system_prompt = system_prompt
+                else:
+                    _system_prompt = None
+                    
+                prompt, adv_completion, def_completion= apply_chat_formatting(
+                    tokenizer=tokenizer,
+                    prompt=examples["prompt"][i],
+                    def_completion=examples["def_completion"][i],
+                    adv_completion=examples["adv_completion"][i],
+                    use_tokenizer_template=use_tokenizer_template,
+                    system_prompt=_system_prompt,
+                    custom_prompt_template=custom_prompt_template,
+                    custom_completion_template=custom_completion_template
+                )
+                
+                examples["prompt"][i] = prompt
+                
+                if num_adv_words is None:
+                    examples["adv_completion"][i] = adv_completion
+                else:
+                    examples["adv_completion"][i] = " ".join(adv_completion.split(" ")[:num_adv_words])
+
+                if add_eos_token:
+                    examples["def_completion"][i] = def_completion + tokenizer.eos_token
+                    examples["adv_completion"][i] = adv_completion + tokenizer.eos_token
+                else:
+                    examples["def_completion"][i] = def_completion
+                    examples["adv_completion"][i] = adv_completion
+            
+            return examples
+
+        dataset = dataset.map(
+            preprocess_example_batch,
+            batched=True,
+            remove_columns=set(dataset.column_names) - {"prompt", "adv_completion", "def_completion"}
+        )
+
+        def remove_duplicate_bos_batched(batch_of_sequences, bos_token):
+            def process_sequence(sequence):
+                # Find the index of the last BOS token at the start of the sequence
+                last_bos_index = 0
+                for i, token in enumerate(sequence):
+                    if token != bos_token:
+                        break
+                    last_bos_index = i
+
+                # Return a single BOS token followed by the rest of the sequence
+                return [bos_token] + sequence[last_bos_index + 1:]
+
+            return [process_sequence(seq) for seq in batch_of_sequences]
+
+        def tokenize_batch(examples):
+            examples["prompt_tokens"] = remove_duplicate_bos_batched(
+                tokenizer(examples["prompt"], add_special_tokens=True).input_ids,
+                tokenizer.bos_token_id
+            )
+            examples["adv_tokens"] = tokenizer(examples["adv_completion"], add_special_tokens=False).input_ids
+            examples["def_tokens"] = tokenizer(examples["def_completion"], add_special_tokens=False).input_ids
+            return examples
+        
+ 
+
+        dataset = dataset.map(
+            tokenize_batch,
+            batched=True,
+            remove_columns={"prompt", "adv_completion", "def_completion"}
+        )
+
+        if filter_len is not None:
+            start_len = len(dataset)
+            dataset = dataset.filter(
+                lambda x: len(x["prompt_tokens"]) + max(len(x["adv_tokens"]), len(x["def_tokens"])) <= filter_len
+            )
+            end_len = len(dataset)
+            print(f"Filtered out {(start_len - end_len) / start_len * 100:.2f}% of the dataset")
+        
+        # datasets.append(LatentAdversarialTrainingDataset(dataset))
+        datasets[language] = LatentAdversarialTrainingDataset(dataset)
+    dataset = MultiLanguageDataset(datasets, tokenizer)
+ 
+    return dataset
 
 def process_generic_chat_dataset(
     tokenizer,
@@ -275,11 +417,16 @@ def process_generic_chat_dataset(
         examples["prompt_tokens"] = remove_duplicate_bos_batched(
             tokenizer(examples["prompt"], add_special_tokens=True).input_ids,
             tokenizer.bos_token_id
+            # tokenizer.eos_token_id
         )
+
+        print(examples['prompt_tokens'])
         examples["adv_tokens"] = tokenizer(examples["adv_completion"], add_special_tokens=False).input_ids
         examples["def_tokens"] = tokenizer(examples["def_completion"], add_special_tokens=False).input_ids
         return examples
     
+
+
     dataset = dataset.map(
         tokenize_batch,
         batched=True,
@@ -293,7 +440,7 @@ def process_generic_chat_dataset(
         )
         end_len = len(dataset)
         print(f"Filtered out {(start_len - end_len) / start_len * 100:.2f}% of the dataset")
-
+    
     return LatentAdversarialTrainingDataset(dataset)
 
 
@@ -769,3 +916,131 @@ class WMDPLATDataCollator:
             "def_labels_mask": def_labels_mask,
             "adv_labels_mask": adv_labels_mask,
         }
+    
+# AD CHANGE
+class MultiLanguageDataset(Dataset):
+    def __init__(self, language_datasets, tokenizer):
+        """
+        A dataset that combines multiple language datasets, ensuring each batch contains data from only one language.
+        Args:
+            language_datasets (dict): A dictionary where keys are language codes and values are datasets (lists of strings).
+        """
+        self.language_datasets = language_datasets
+        self.languages = list(language_datasets.keys())  # List of languages
+        self.tokenizer = tokenizer
+
+    def __len__(self):
+        """
+        Return the total number of samples across all languages.
+        """
+        return sum(len(dataset) for dataset in self.language_datasets.values())
+
+    def __getitem__(self, idx):
+        """
+        Retrieve a data sample, ensuring each batch comes from a single language.
+        """
+        lang_idx = 0
+        while idx >= len(self.language_datasets[self.languages[lang_idx]]):
+            idx -= len(self.language_datasets[self.languages[lang_idx]])
+            lang_idx += 1
+
+        language = self.languages[lang_idx]
+        return self.language_datasets[language][idx]
+    
+    def get_language_batches(self, batch_size):
+        """
+        Generate batches of data from different languages, each batch coming from a single language.
+        """
+
+        languages = self.languages[:]
+        batches = []
+        for lang in languages:
+            dataset = self.language_datasets[lang]
+            
+            dataloader = DataLoader(
+                dataset,  # Hugging Face dataset
+                batch_size=batch_size,  # Specify the batch size
+                shuffle=True,  # Shuffle the dataset for better training results
+                drop_last=True,  # Drop the last incomplete batch (optional)
+                collate_fn=LatentAdversarialTrainingDataCollator(
+                self.tokenizer.pad_token_id,
+                truncate_length=2048
+            )
+            )
+            
+            # Iterate over the DataLoader and collect batches
+            for batch in dataloader:
+                # Each `batch` will be a dictionary of the form:
+                # {"adv_tokens": tensor, "def_tokens": tensor, ...}
+                # print(f"Language: {lang}, Batch: {batch}")
+                batches.append((lang, batch))
+    
+        #     dataset = self.language_datasets[lang]
+        #     print(dataset)
+        #     for i in range(0, len(dataset), batch_size):
+        #         batch = dataset[i:i + batch_size]
+        #         print("batch: ", batch)
+        #         batches.append((lang, batch))  
+
+      
+        
+        return batches
+
+    def create_latent_adversarial_dataloader(self):
+        # First, create the batches by language
+        language_batches = self.get_language_batches(batch_size=16)
+
+        # Define the custom collator
+        # collator = LatentAdversarialTrainingDataCollator(
+        #     pad_token_id=self.tokenizer.pad_token_id,
+        #     truncate_length=2048
+        # )
+
+        # Create a DataLoader for each language batch
+        dataloader = DataLoader(
+            language_batches,  # The list of batches (tuples of language and batch)
+            batch_size=1,       # We are processing the batches one by one (already split by language)
+            shuffle=True,
+            # shuffle=False,
+            # drop_last=True,
+            # collate_fn=collator  # Use the custom collator to process the batches
+        )
+
+        # for batch in dataloader: 
+        #     batch[1]['adv_labels_mask'] = batch[1]['adv_labels_mask'].squeeze(dim=0)
+        #     batch[1]['def_labels_mask'] = batch[1]['def_labels_mask'].squeeze(dim=0)
+        #     batch[1]['prompt_mask'] = batch[1]['prompt_mask'].squeeze(dim=0)
+        #     batch[1]["adv_tokens"] = batch[1]['adv_tokens'].squeeze(dim=0),
+        #     batch[1]["def_tokens"] = batch[1]['def_tokens'].squeeze(dim=0),
+            
+        return dataloader
+
+class SynchronizedDataLoader:
+    def __init__(self, dataloader_1, dataloader_2, languages):
+        self.dataloader_1 = dataloader_1
+        self.dataloader_2 = dataloader_2
+        self.languages = languages
+        self.language_iter = itertools.cycle(languages)
+        self.dataloader_1_iter = iter(dataloader_1)
+        self.dataloader_2_iter = iter(dataloader_2)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        language = next(self.language_iter)
+        batch_1 = self._get_batch_for_language(self.dataloader_1_iter, language)
+        batch_2 = self._get_batch_for_language(self.dataloader_2_iter, language)
+        return batch_1, batch_2
+
+    def _get_batch_for_language(self, dataloader_iter, language):
+        while True:
+            try:
+                batch = next(dataloader_iter)
+                if self._check_batch_language(batch, language):
+                    return batch
+            except StopIteration:
+                break
+
+    def _check_batch_language(self, batch, language):
+        return language in batch[0]

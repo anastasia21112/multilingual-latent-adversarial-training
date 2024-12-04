@@ -17,6 +17,9 @@ from .lat_helpers import *
 from tasks.general_capabilities.multiple_choice_tasks import MMLUTask
 from tasks.wmdp.WMDP_MCTask import WMDP_MCTask
 import torch.distributed as dist
+import os
+from datetime import datetime
+from latent_at.lat_datasets import SynchronizedDataLoader
 
 try:
     import deepspeed
@@ -57,15 +60,17 @@ def projected_gradient_descent(
         losses or losses_over_time: Dictionary of losses.
         wrappers: List of hook instances. These subclass nn.Module.
     """
-
+    # batch = batch[1]
     # Clear and initialize the adversary
     clear_hooks(model)
     if type(layer) == int:
         layer = [layer,]
 
+    
     if add_completions_pgd:
         completions_mask = torch.any(torch.stack([batch["adv_labels_mask"], batch["def_labels_mask"]]), dim=0)
         attack_mask = torch.any(torch.stack([batch["prompt_mask"], completions_mask]), dim=0)
+        print(attack_mask.shape)
         create_adversary=lambda x: GDAdversary(
             # dim=model.config.hidden_size,
             dim=4096,
@@ -83,6 +88,8 @@ def projected_gradient_descent(
             attack_mask = batch["prompt_mask"].to(device) if "prompt_mask" in batch else batch["adv_labels_mask"].to(device),
             dtype=model.dtype,
         )
+
+        print('here')
 
     adversary_locations = [
         (f"{model_layers_module}.{layer_i}", "mlp") for layer_i in layer if type(layer_i) == int
@@ -167,6 +174,7 @@ class LATBaseClass:
         post_def_callback=None,
         model_layers_module="model.layers",
         only_train_lora=None,
+        output_folder=None,
     ):
         self.model = model
         self.dataloader = itertools.cycle(dataloader)
@@ -184,6 +192,17 @@ class LATBaseClass:
         else:
             self.only_train_lora = only_train_lora
         self.model_layers_module = model_layers_module
+        
+        if output_folder is None:
+            current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+            # Create the full path for the new folder
+            self.output_folder =  f"./artifacts/folder_{current_time}"
+        else:
+            self.output_folder = output_folder
+
+        # Create the folder
+        os.makedirs(self.output_folder, exist_ok=True)
     
     def disable_model_gradients(self):
         for param in self.model.parameters():
@@ -218,6 +237,10 @@ class LATBaseClass:
             name=name
         )
         clear_hooks(self.model)
+
+    def save_model(self, output_dir=None):
+        output_dir = output_dir if output_dir is not None else self.output_folder
+        self.model.save_pretrained(f"{output_dir}/saved_model")
     
 
 class ProjectedGradLAT(LATBaseClass):
@@ -225,6 +248,7 @@ class ProjectedGradLAT(LATBaseClass):
     def __init__(
         self,
         model: nn.Module,
+
         dataloader: DataLoader,
         pgd_layers: List[int],
         model_layers: List[int],
@@ -251,6 +275,9 @@ class ProjectedGradLAT(LATBaseClass):
         N_checkpoints=None, # *includes* the final checkpoint
         checkpoint_dir=None,
         add_completions_pgd: bool = False,
+        output_folder=None,
+        languages=None,
+        sequential=True,
     ):
 
         """
@@ -296,6 +323,7 @@ class ProjectedGradLAT(LATBaseClass):
             post_def_callback=post_def_callback,
             model_layers_module=model_layers_module,
             only_train_lora=only_train_lora,
+            output_folder=output_folder,
         )
 
         self.pgd_layers = pgd_layers
@@ -312,8 +340,12 @@ class ProjectedGradLAT(LATBaseClass):
         self.time_limit = time_limit
         self.device = device
         self.N_checkpoints = N_checkpoints # *includes* the final checkpoint
-        self.checkpoint_dir = checkpoint_dir
+        self.checkpoint_dir = checkpoint_dir if checkpoint_dir is not None else self.output_folder
         self.add_completions_pgd = add_completions_pgd
+        self.languages = languages
+        self.sequential = sequential
+       
+        
 
         if sft_dataloader is not None and not isinstance(sft_dataloader, itertools.cycle):
             assert dataloader.batch_size == sft_dataloader.batch_size
@@ -324,6 +356,7 @@ class ProjectedGradLAT(LATBaseClass):
             assert def_loss_coefs["sft"] == 0
             self.sft_dataloader = None  
 
+        self.synchronized_loader = SynchronizedDataLoader(self.dataloader, self.sft_dataloader, self.languages)
         self.adv_loss_coefs = normalize_dict(adv_loss_coefs)
         self.def_loss_coefs = normalize_dict(def_loss_coefs)
         
@@ -397,7 +430,7 @@ class ProjectedGradLAT(LATBaseClass):
             acc_step=False,
         )
         if self.post_adv_callback is not None:
-            self.post_adv_callback(losses, epoch=epoch)
+            self.post_adv_callback(losses, self.output_folder, epoch=epoch)
         # Train model against adversary
         self.enable_model_gradients()
         for _ in range(self.model_iterations_per_step):
@@ -412,7 +445,7 @@ class ProjectedGradLAT(LATBaseClass):
         losses.update(def_losses)
         clear_hooks(self.model)
         if self.post_def_callback is not None:
-            self.post_def_callback(losses, epoch)
+            self.post_def_callback(losses, self.output_folder, epoch)
 
     def lat_training_step_with_accumulation(
             self,
@@ -421,6 +454,9 @@ class ProjectedGradLAT(LATBaseClass):
             sft_batch: Optional[dict[str, torch.Tensor]] = None,
     ) -> None:
         # Train gradient accumulation version
+        # print("BATCH: ", batch)
+        # batch = batch[1]
+        # print(batch)
         batch_size = batch["def_tokens"].shape[0]
         acc_steps = list(range(0, batch_size, self.max_batch_per_acc))
         acc_wrappers = []
@@ -439,7 +475,7 @@ class ProjectedGradLAT(LATBaseClass):
             for wrapper in wrappers:
                 wrapper.enabled = False
         if self.post_adv_callback is not None:
-            self.post_adv_callback(losses, epoch=epoch)
+            self.post_adv_callback(losses, self.output_folder, epoch=epoch)
         # Train defense for each sub-batch
         for _ in range(self.model_iterations_per_step):
             for i, start_idx in enumerate(acc_steps):
@@ -463,14 +499,41 @@ class ProjectedGradLAT(LATBaseClass):
         # Log results
         losses.update(def_losses)
         if self.post_def_callback is not None and start_idx == acc_steps[-1]:
-            self.post_def_callback(losses, epoch)
+            self.post_def_callback(losses, self.output_folder, epoch)
         clear_hooks(self.model)
 
+    
     def train_epoch(self, epoch):
-        # Load batched data
-        batch = next(self.dataloader)
-        sft_batch = next(self.sft_dataloader) if self.sft_dataloader else None
 
+        
+        # Load batched data
+        # batch = next(self.dataloader)
+        # sft_batch = next(self.sft_dataloader) if self.sft_dataloader else None
+        batch, sft_batch = next(self.synchronized_loader)
+
+        if len(batch) == 2: 
+            print(batch[0])
+            batch = batch[1]
+        
+        if len(sft_batch) == 2:
+            print(sft_batch[0])
+            sft_batch = sft_batch[1]
+        
+        if len(batch['prompt_mask'].shape) > 2: 
+            batch['adv_labels_mask'] = batch['adv_labels_mask'].squeeze(dim=0)
+            batch['def_labels_mask'] = batch['def_labels_mask'].squeeze(dim=0)
+            batch['prompt_mask'] = batch['prompt_mask'].squeeze(dim=0)
+            batch["adv_tokens"] = batch['adv_tokens'].squeeze(dim=0)
+            batch["def_tokens"] = batch['def_tokens'].squeeze(dim=0)
+
+        if len(sft_batch['prompt_mask'].shape) > 2:
+            sft_batch['adv_labels_mask'] = sft_batch['adv_labels_mask'].squeeze(dim=0)
+            sft_batch['def_labels_mask'] = sft_batch['def_labels_mask'].squeeze(dim=0)
+            sft_batch['prompt_mask'] = sft_batch['prompt_mask'].squeeze(dim=0)
+            sft_batch["adv_tokens"] = sft_batch['adv_tokens'].squeeze(dim=0)
+            sft_batch["def_tokens"] = sft_batch['def_tokens'].squeeze(dim=0)
+
+      
         # Reinitialize optimizer every LAT step
         if self.reinitialize_dev_optim:
             self.def_optim = torch.optim.AdamW(
@@ -493,6 +556,63 @@ class ProjectedGradLAT(LATBaseClass):
                 sft_batch=sft_batch,
             )
 
+        torch.cuda.empty_cache() # MKS CHANGE
+    
+    def train_epoch_not_sequential(self, epoch):
+
+        
+        # Load batched data
+        batch = next(self.dataloader)
+        sft_batch = next(self.sft_dataloader) if self.sft_dataloader else None
+        # batch, sft_batch = next(self.synchronized_loader)
+
+        if len(batch) == 2: 
+            print(batch[0])
+            batch = batch[1]
+        
+        if len(sft_batch) == 2:
+            print(sft_batch[0])
+            sft_batch = sft_batch[1]
+        
+        if len(batch['prompt_mask'].shape) > 2: 
+            batch['adv_labels_mask'] = batch['adv_labels_mask'].squeeze(dim=0)
+            batch['def_labels_mask'] = batch['def_labels_mask'].squeeze(dim=0)
+            batch['prompt_mask'] = batch['prompt_mask'].squeeze(dim=0)
+            batch["adv_tokens"] = batch['adv_tokens'].squeeze(dim=0)
+            batch["def_tokens"] = batch['def_tokens'].squeeze(dim=0)
+
+        if len(sft_batch['prompt_mask'].shape) > 2:
+            sft_batch['adv_labels_mask'] = sft_batch['adv_labels_mask'].squeeze(dim=0)
+            sft_batch['def_labels_mask'] = sft_batch['def_labels_mask'].squeeze(dim=0)
+            sft_batch['prompt_mask'] = sft_batch['prompt_mask'].squeeze(dim=0)
+            sft_batch["adv_tokens"] = sft_batch['adv_tokens'].squeeze(dim=0)
+            sft_batch["def_tokens"] = sft_batch['def_tokens'].squeeze(dim=0)
+
+      
+        # Reinitialize optimizer every LAT step
+        if self.reinitialize_dev_optim:
+            self.def_optim = torch.optim.AdamW(
+                self.model.parameters(),
+                lr=self.outer_learning_rate
+            )
+
+        # Start training loop
+        if self.max_batch_per_acc is not None:
+            self.lat_training_step_with_accumulation(
+                epoch=epoch,
+                batch=batch,
+                sft_batch=sft_batch,
+
+            )
+        else:
+            self.lat_training_step(
+                epoch=epoch,
+                batch=batch,
+                sft_batch=sft_batch,
+            )
+
+        torch.cuda.empty_cache() # MKS CHANGE
+
     def save_checkpoint(self, checkpoint_num):
         if self.checkpoint_dir is not None:
             os.makedirs(self.checkpoint_dir, exist_ok=True)
@@ -507,10 +627,13 @@ class ProjectedGradLAT(LATBaseClass):
         start_time = time.time()
 
         next_checkpoint = 1
-
+        print(self.sequential)
         for epoch in epoch_iter:
 
-            self.train_epoch(epoch)
+            if self.sequential:
+                self.train_epoch(epoch)
+            else:
+                self.train_epoch_not_sequential(epoch)
 
             elapsed_time = time.time() - start_time
             # Checkpointing

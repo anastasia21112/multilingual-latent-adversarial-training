@@ -1,0 +1,7 @@
+cpu-bind=MASK - espresso, task  0  0 [668444]: mask 0xff00000000000000001fe0000 set
+Python 3.9.7
+/data/healthy-ml/scratch/anastasia21112/anaconda3/envs/multilingual_tlat/bin/python
+Traceback (most recent call last):
+  File "/data/healthy-ml/scratch/anastasia21112/multilingual-latent-adversarial-training/notebooks/jailbreaks_script.py", line 13, in <module>
+    from latent_at import *
+ModuleNotFoundError: No module named 'latent_at'
