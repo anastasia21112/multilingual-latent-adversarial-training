@@ -273,7 +273,7 @@ class MMLUTask(MultipleChoiceQuestion):
             if language == "eng":
                 print("Running English MMMLU")
                 dataset_name = "tinyBenchmarks/tinyMMLU"
-            elif language == "esp":
+            elif language == "spa":
                 print("Running Spanish MMMLU")
                 dataset_name = "oliviarmunoz/eval_es"
             elif language == "arb":
