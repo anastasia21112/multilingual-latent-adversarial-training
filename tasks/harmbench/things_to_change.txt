@@ -1,0 +1,20 @@
+run_attack_evals:
+- don't use any of the fancy attacks for now -- they're all english only
+- direct request and clean?
+-- tasks/harmbench/data/harmbench_data/behavior_datasets/harmbench_behaviors_text_all.csv and tasks/harmbench/data/harmbench_data/optimizer_targets/text_targets.csv
+-- tasks/harmbench/data/clean_behaviors.csv
+- maybe load targets false?
+
+
+
+English Only TLAT
+{'DirectRequest': 0.03, 'clean': 0.75}
+English+Viet
+{'DirectRequest': 0.0, 'clean': 0.84}
+
+English+Viet on Viet eval
+{'DirectRequest': 0.01, 'clean': 0.79}
+
+0.02
+
+{'DirectRequest': 0.05, 'clean': 0.85}
