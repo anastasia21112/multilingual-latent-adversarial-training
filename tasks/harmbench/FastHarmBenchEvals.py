@@ -11,9 +11,10 @@ hf_access_token = os.getenv("HUGGINGFACE_API_KEY")
 
 def run_attack_evals(model, device="cuda", model_type="llama2", func_categories=["contextual"],
                            num_samples=100, max_gen_tokens=200, do_sample=False, temperature=0.7, verbose=False, train_test_split=None, 
+                           language="eng",
                            only_run_evals=None, max_gen_batch_size=25,
                            cache_dir=None, return_as_asrs=True, pretrained_cls="llama",
-                           no_print=False):
+                           no_print=False, gibberish_suffixes=False):
 
     llama_tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-chat-hf", token=hf_access_token)
     llama_tokenizer.pad_token_id = llama_tokenizer.unk_token_id
@@ -33,8 +34,9 @@ def run_attack_evals(model, device="cuda", model_type="llama2", func_categories=
 
     harmbench_data_standard = HarmBenchTask(tokenizer=tokenizer, gen_batch_size=min(25, max_gen_batch_size), cls_batch_size=8, device=device,
                                             data_name="harmbench_text", func_categories=func_categories, train_test_split=train_test_split,
-                                            load_targets=False,
-                                            pretrained_cls=pretrained_cls, cls_tokenizer=llama_tokenizer)
+                                            language=language,load_targets=False, # changed by mks
+                                            pretrained_cls=pretrained_cls, cls_tokenizer=llama_tokenizer,
+                                            gibberish_suffixes=gibberish_suffixes)
    
    
     harmbench_cases = {"DirectRequest": harmbench_data_standard}
@@ -49,7 +51,8 @@ def run_attack_evals(model, device="cuda", model_type="llama2", func_categories=
     if only_run_evals is not None:
         harmbench_cases = {k: v for k, v in harmbench_cases.items() if k in only_run_evals}
 
-    clean_eval = HarmBenchTask(tokenizer=tokenizer, gen_batch_size=min(25, max_gen_batch_size), load_targets=False,
+    clean_eval = HarmBenchTask(tokenizer=tokenizer, gen_batch_size=min(25, max_gen_batch_size), 
+                               language=language, load_targets=False, # changed by mks
                                cls_batch_size=12, device=device, data_name="clean", cls_tokenizer=llama_tokenizer, train_test_split=train_test_split)
     clean_eval.cls = harmbench_data_standard.cls
     harmbench_cases["clean"] = clean_eval
@@ -76,13 +79,15 @@ def run_attack_evals(model, device="cuda", model_type="llama2", func_categories=
         if not no_print:
             print(f"{attack_name} ASR is {asr if return_as_asrs else asr['asr']}")
     if not no_print:
+        print(f"Language is {language}")
         print(asrs)
     return asrs
 
 from tasks.general_capabilities.multiple_choice_tasks import MMLUTask, HellaSwagTask, WinograndeTask, SciQTask, LambadaTask, PIQATask
 
-def run_general_evals(model, model_type="llama2", temperature=0, verbose=False, sample_size=1000, no_print=False, evals_to_include=["MMLU", "HellaSwag", "Winogrande", "SciQ", "Lambada", "PIQA"]):
-    mmlu = MMLUTask()
+def run_general_evals(model, model_type="llama2", temperature=0, language="eng", verbose=False, sample_size=1000, no_print=False, evals_to_include=["MMLU", "HellaSwag", "Winogrande", "SciQ", "Lambada", "PIQA"]):
+
+    mmlu = MMLUTask(language=language)
     hellaswag = HellaSwagTask()
     winogrande = WinograndeTask()
     sciq = SciQTask()

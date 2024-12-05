@@ -256,6 +256,7 @@ class MMLUTask(MultipleChoiceQuestion):
 
     def __init__(
         self,
+        language=None,
         question_format=None,
         subject="all",
         streaming=False,
@@ -266,7 +267,25 @@ class MMLUTask(MultipleChoiceQuestion):
         """
         super().__init__(question_format=question_format)
 
-        dataset_name = "tasksource/mmlu" if not tiny else "tinyBenchmarks/tinyMMLU"
+        if not language:
+            dataset_name = "tasksource/mmlu" if not tiny else "tinyBenchmarks/tinyMMLU"
+        else:
+            if language == "eng":
+                print("Running English MMMLU")
+                dataset_name = "tinyBenchmarks/tinyMMLU"
+            elif language == "esp":
+                print("Running Spanish MMMLU")
+                dataset_name = "oliviarmunoz/eval_es"
+            elif language == "arb":
+                print("Running Arabic MMMLU")
+                dataset_name = "oliviarmunoz/eval_ar"
+            elif language == "vie":
+                print("Running Swahili MMMLU")
+                dataset_name = "oliviarmunoz/eval_sw"
+            else:
+                raise ValueError(f"Language {language} not supported for MMMLU yet.")
+
+
 
         if not streaming and not tiny:
             raise ValueError("Loading the full MMLU dataset, for speed use streaming=True or tiny=True.")

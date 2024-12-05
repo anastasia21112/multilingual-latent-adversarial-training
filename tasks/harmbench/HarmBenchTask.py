@@ -168,11 +168,14 @@ def simple_filter_classify_text(completions, refusal_strs=refusal_strs_conservat
     return nonrefusals
 
 contextual_behavior_format = "{context}\n\n---\n\n{behavior}"
+
+from consts import VALID_LANGUAGES
+
 class HarmBenchTask(Task):
     """
     Class for evaluating attack success rate of a model on the HarmBench dataset.
     """
-    def __init__(self, tokenizer, gen_batch_size, cls_batch_size, device='cuda', data_name="harmbench_text", func_categories=["standard", "contextual"], load_targets=True, train_test_split=.8, pretrained_cls=None, cls_tokenizer=None, gibberish_suffixes=False):
+    def __init__(self, tokenizer, gen_batch_size, cls_batch_size, device='cuda', data_name="harmbench_text", language="eng", func_categories=["standard", "contextual"], load_targets=True, train_test_split=.8, pretrained_cls=None, cls_tokenizer=None, gibberish_suffixes=False):
         """
         Class for storing attacks and possibly preference pairs for a task in or similar to HarmBench.
         tokenizer: should be set to left padding
@@ -199,7 +202,11 @@ class HarmBenchTask(Task):
 
         if data_name == "harmbench_text":
             # behaviors_df = pd.read_csv("tasks/harmbench/data/harmbench_data/behavior_datasets/harmbench_behaviors_text_all.csv")
-            behaviors_df = pd.read_csv("/data/healthy-ml/scratch/maanas/multilingual_jailbreak_scratch/harmbench_behaviors_text_all_vie.csv")
+
+            if language not in VALID_LANGUAGES:
+                raise ValueError(f"Language {language} not in valid languages {VALID_LANGUAGES}")
+
+            behaviors_df = pd.read_csv(f"/data/healthy-ml/scratch/maanas/multilingual_jailbreak_scratch/multilingual-latent-adversarial-training/tasks/harmbench/data/harmbench_data/behavior_datasets/harmbench_language/harmbench_text_{language}.csv")
             # behaviors_df = pd.read_csv("tasks/harmbench/data/harmbench_data/optimizer_targets/refusals.csv")
             # with open("tasks/harmbench/data/harmbench_data/optimizer_targets/harmbench_targets_text.json", "r") as f:
             #     targets = json.load(f)
@@ -270,7 +277,9 @@ class HarmBenchTask(Task):
             
             elif data_name == "clean":
                 # load from tasks/harmbench/data/clean_behaviors.csv
-                behaviors_df = pd.read_csv("tasks/harmbench/data/clean_behaviors.csv")
+                if language not in VALID_LANGUAGES:
+                    raise ValueError(f"Language {language} not in valid languages {VALID_LANGUAGES}")
+                behaviors_df = pd.read_csv(f"tasks/harmbench/data/clean_behaviors_{language}.csv")
                 behaviors = []
                 for _, row in behaviors_df.iterrows():
                     behaviors.append({"behavior": row["goal"], "target": row["target"]})
