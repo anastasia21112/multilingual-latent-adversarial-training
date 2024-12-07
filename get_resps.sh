@@ -2,7 +2,7 @@
 
 # TODO add output logs, add setup bash to run script thing
 
-#SBATCH --job-name="get_resps"
+#SBATCH --job-name="multi_multi"
 #SBATCH --output=logs/output_%A_%a.txt
 #SBATCH --time=2-00:00 # must set end time, default 2 days
 #SBATCH -p healthyml
@@ -34,6 +34,6 @@ pip install -r requirements.txt
 bash install_tasks_from_github.sh
 
 cd notebooks
-python jailbreaks_script.py --languages_train en es ko ar sw am --languages_sft en --sequential
+python jailbreaks_script.py --languages_train en es ko ar sw am --languages_sft en es ko ar sw am
 
 # python notebooks/jailbreaks_script.py

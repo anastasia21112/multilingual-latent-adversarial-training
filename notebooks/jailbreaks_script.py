@@ -367,10 +367,9 @@ def main():
         add_completions_pgd=add_completions_pgd,  # Whether to add PGD over the completion tokens
         N_checkpoints=10,
         languages = set(sft_langs).intersection(set(training_langs)),
-        sequential=sequential
+        sequential=True
     )
 
-    print('sequential: ', sequential)
 
     pgd_trainer.train(project_name="jailbreaks_test")
     pgd_trainer.save_model()
