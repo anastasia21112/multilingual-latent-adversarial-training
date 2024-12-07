@@ -256,7 +256,6 @@ class MMLUTask(MultipleChoiceQuestion):
 
     def __init__(
         self,
-        language=None,
         question_format=None,
         subject="all",
         streaming=False,
@@ -267,25 +266,7 @@ class MMLUTask(MultipleChoiceQuestion):
         """
         super().__init__(question_format=question_format)
 
-        if not language:
-            dataset_name = "tasksource/mmlu" if not tiny else "tinyBenchmarks/tinyMMLU"
-        else:
-            if language == "eng":
-                print("Running English MMMLU")
-                dataset_name = "tinyBenchmarks/tinyMMLU"
-            elif language == "spa":
-                print("Running Spanish MMMLU")
-                dataset_name = "oliviarmunoz/eval_es"
-            elif language == "arb":
-                print("Running Arabic MMMLU")
-                dataset_name = "oliviarmunoz/eval_ar"
-            elif language == "vie":
-                print("Running Swahili MMMLU")
-                dataset_name = "oliviarmunoz/eval_sw"
-            else:
-                raise ValueError(f"Language {language} not supported for MMMLU yet.")
-
-
+        dataset_name = "tasksource/mmlu" if not tiny else "tinyBenchmarks/tinyMMLU"
 
         if not streaming and not tiny:
             raise ValueError("Loading the full MMLU dataset, for speed use streaming=True or tiny=True.")
@@ -408,6 +389,143 @@ class MMLUTask(MultipleChoiceQuestion):
             ).rename_column("temp_answer", "answer")
             self.dataset = self.dataset.shuffle(seed=42)
 
+def is_valid_MMMLU(lang):
+    return lang in ["spa", "arb", "swh"]
+
+class MMMLUTask(MultipleChoiceQuestion):
+
+    def __init__(
+        self,
+        language=None,
+        question_format=None,
+        subject="all",
+        streaming=False,
+        tiny=True,
+    ):
+        """
+        Defaults to tiny MMLU dataset https://huggingface.co/tinyBenchmarks
+        """
+        super().__init__(question_format=question_format)
+
+        assert is_valid_MMMLU(language), "expect a valid language for MMMLU"
+
+        assert tiny, "expect tiny dataset"
+
+        assert subject == "all", "special MMMLU dataset not disaggregated by subject"
+
+
+        if language == "spa":
+            print("Running Spanish MMMLU")
+            dataset_name = "oliviarmunoz/eval_es"
+        elif language == "arb":
+            print("Running Arabic MMMLU")
+            dataset_name = "oliviarmunoz/eval_ar"
+        elif language == "swh":
+            print("Running Swahili MMMLU")
+            dataset_name = "oliviarmunoz/eval_sw"
+        else:
+            raise ValueError(f"Language {language} not supported for MMMLU yet.")
+
+
+
+        if not streaming and not tiny:
+            raise ValueError("Loading the full MMLU dataset, for speed use streaming=True or tiny=True.")
+
+        available_subjects = [
+            "abstract_algebra",
+            "anatomy",
+            "astronomy",
+            "business_ethics",
+            "clinical_knowledge",
+            "college_biology",
+            "college_chemistry",
+            "college_computer_science",
+            "college_mathematics",
+            "college_medicine",
+            "college_physics",
+            "computer_security",
+            "conceptual_physics",
+            "econometrics",
+            "electrical_engineering",
+            "elementary_mathematics",
+            "formal_logic",
+            "global_facts",
+            "high_school_biology",
+            "high_school_chemistry",
+            "high_school_computer_science",
+            "high_school_european_history",
+            "high_school_geography",
+            "high_school_government_and_politics",
+            "high_school_macroeconomics",
+            "high_school_mathematics",
+            "high_school_microeconomics",
+            "high_school_physics",
+            "high_school_psychology",
+            "high_school_statistics",
+            "high_school_us_history",
+            "high_school_world_history",
+            "human_aging",
+            "human_sexuality",
+            "international_law",
+            "jurisprudence",
+            "logical_fallacies",
+            "machine_learning",
+            "management",
+            "marketing",
+            "medical_genetics",
+            "miscellaneous",
+            "moral_disputes",
+            "moral_scenarios",
+            "nutrition",
+            "philosophy",
+            "prehistory",
+            "professional_accounting",
+            "professional_law",
+            "professional_medicine",
+            "professional_psychology",
+            "public_relations",
+            "security_studies",
+            "sociology",
+            "us_foreign_policy",
+            "virology",
+            "world_religions",
+        ]
+
+        if self.question_format is None:
+            self.question_format = DEFAULT_4_QUESTION_FORMAT
+            # self.question_format = NO_ANSWER_4_QUESTION_FORMAT
+        def mmlu_map_fn(examples):
+
+            questions = []
+            answers = []
+
+            for i in range(len(examples["question"])):
+                questions.append(self.question_format.format(
+                    question=examples["question"][i],
+                    choice_A=examples["choices"][i][0],
+                    choice_B=examples["choices"][i][1],
+                    choice_C=examples["choices"][i][2],
+                    choice_D=examples["choices"][i][3],
+                ))
+                answers.append(number_to_letter(int(examples["answer"][i])))
+
+            return {
+                "question": questions,
+                "temp_answer": answers,
+            }
+
+
+        self.dataset = datasets.load_dataset(
+            dataset_name,
+            split="train",
+            streaming=streaming
+        )
+        self.dataset = self.dataset.map(
+            mmlu_map_fn,
+            batched=True,
+            remove_columns=set(self.dataset.column_names) - {"question", "temp_answer"}
+        ).rename_column("temp_answer", "answer")
+        self.dataset = self.dataset.shuffle(seed=42)
 
 class HellaSwagTask(MultipleChoiceQuestion):
 
