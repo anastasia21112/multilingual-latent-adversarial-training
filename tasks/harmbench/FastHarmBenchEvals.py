@@ -83,11 +83,16 @@ def run_attack_evals(model, device="cuda", model_type="llama2", func_categories=
         print(asrs)
     return asrs
 
-from tasks.general_capabilities.multiple_choice_tasks import MMLUTask, HellaSwagTask, WinograndeTask, SciQTask, LambadaTask, PIQATask
+from tasks.general_capabilities.multiple_choice_tasks import MMLUTask, MMMLUTask, HellaSwagTask, WinograndeTask, SciQTask, LambadaTask, PIQATask, is_valid_MMMLU
 
-def run_general_evals(model, model_type="llama2", temperature=0, language="eng", verbose=False, sample_size=1000, no_print=False, evals_to_include=["MMLU", "HellaSwag", "Winogrande", "SciQ", "Lambada", "PIQA"]):
+def run_general_evals(model, model_type="llama2", temperature=0, language=None, verbose=False, sample_size=1000, no_print=False, evals_to_include=["MMLU", "HellaSwag", "Winogrande", "SciQ", "Lambada", "PIQA"]):
 
-    mmlu = MMLUTask(language=language)
+    if is_valid_MMMLU(language):
+        print(f"Will present results for Multilingual MMMLU")
+        mmlu = MMMLUTask(language=language)
+    else:
+        print("Defaulting to Tiny English MMLU")
+        mmlu = MMLUTask()
     hellaswag = HellaSwagTask()
     winogrande = WinograndeTask()
     sciq = SciQTask()
