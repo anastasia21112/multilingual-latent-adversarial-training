@@ -14,14 +14,16 @@ To run an experiment:
 To run evals: 
 - navigate to the run_evals_all_models.py file 
 - load your adaptor file with the code in the file
-- enable your adaptor for the base model (in this case LLaMA-2)
+- enable your adaptor for the base model (in this case LLaMA-2-7b)
 - go to run_evals.sh
 - submit the job to the cluster with sbatch run_evals.sh
 - output is written on the output file in the logs document
 
 ## DATA: 
-Multilingual Training Datasets: [Hugging Face Collection produced by us](https://huggingface.co/collections/adunca08/nlp-final-project-67435bcd2f6a94e877730db0)
-Multilingual SFT Datasets: [Hugging Face Collection produced by us]()
+* Multilingual Training Datasets: [Hugging Face Collection produced by us](https://huggingface.co/collections/adunca08/nlp-final-project-67435bcd2f6a94e877730db0)
+* Multilingual SFT Datasets: [Hugging Face Collection produced by us](https://huggingface.co/collections/adunca08/multilingual-sft-datasets-6758bc9f8e62f1acbe1619af)
+* [Original Training Data from Paper, English only](https://huggingface.co/datasets/LLM-LAT/harmful-dataset)
+* [Original SFT Data from Paper, English only](https://huggingface.co/datasets/LLM-LAT/benign-dataset)
 
 ## MODELS: 
 Try out the models by loading the base [LLaMA-2-7b](https://huggingface.co/meta-llama/Llama-2-7b) and attaching an adaptor. 
