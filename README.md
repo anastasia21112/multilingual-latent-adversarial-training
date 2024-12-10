@@ -35,6 +35,15 @@ Try out the models by loading the base [LLaMA-2-7b](https://huggingface.co/meta-
 ## REPOS: 
 * [T-LAT](https://github.com/aengusl/latent-adversarial-training)
 * [Evaluation Tasks](https://github.com/magikarp01/tasks)
+
+## LIST OF CHANGES: 
+* Added multilanguage dataset class to support training/SFT of multiple languages
+* Added synchronized data loader to do training/sft with same language batches
+* Added multilanguage evaluation script to use datasets of multiple languages
+* Added multilingual MMLU to the evaluation tasks
+* Translated original training dataset into 8 other languages (linked in README)
+* Translated original SFT dataset into 8 other languages (linked in README)
+* Translated evaluation dataset into 8 other languages (dataset in github repo)
   
 ## ORIGINAL PAPER: 
 Latent Adversarial Training Improves Robustness to Persistent Harmful Behaviors in LLMs
