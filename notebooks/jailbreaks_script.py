@@ -16,7 +16,7 @@ from latent_at import *
 from tasks.harmbench.HarmBenchTask import HarmBenchTask
 import argparse
 load_dotenv()
-hf_access_token = os.getenv("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")
+hf_access_token = os.getenv("INSERT API KEY")
 os.environ["WANDB_MODE"] = "disabled"
 
 import torch

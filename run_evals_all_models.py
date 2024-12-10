@@ -36,8 +36,8 @@ def run_evals(model):
 
 # Load the model
 model_name = "meta-llama/Llama-2-7b-chat-hf" # Or any other base model
-# hf_access_token = os.getenv("HF_ACCESS_TOKEN")
-hf_access_token = os.getenv("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")
+hf_access_token = os.getenv("HF_ACCESS_TOKEN")
+
 
 model = AutoModelForCausalLM.from_pretrained(model_name, token=hf_access_token, torch_dtype=torch.bfloat16).to("cuda")
 tokenizer = AutoTokenizer.from_pretrained(model_name)
