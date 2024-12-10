@@ -41,7 +41,7 @@ parser.add_argument(
     required=True
 )
 
-parser.add_argument('--sequential', dest='sequential', default=False, action='store_false', help='Do not do SFT sequentially after training')
+parser.add_argument('--sequential', dest='sequential', action='store_true', help='Do not do SFT sequentially after training')
 
 args = parser.parse_args()
 
@@ -94,14 +94,6 @@ def main():
         torch_dtype=model_dtype
     ).to(device)
 
-    # model = LlavaNextForConditionalGeneration.from_pretrained(
-    #         model_name, 
-    #         torch_dtype=torch.float16,
-    #         # model_dtype = torch.bfloat16,
-    #     ).to(device)
-    # processor = AutoProcessor.from_pretrained("neulab/Pangea-7B-hf")
-    # model.resize_token_embeddings(len(processor.tokenizer))
-    # model_type = "qwen"
     if "Llama-2" in model_name:
         model_type = "llama2"
         tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -122,11 +114,6 @@ def main():
         tokenizer = AutoTokenizer.from_pretrained("BAAI/bge-multilingual-gemma2")
         tokenizer.pad_token_id = tokenizer.eos_token_id
         tokenizer.padding_side = "left"
-    # elif "neulab/Pangea-7B-hf" in model_name:
-    #     tokenizer = processor.tokenizer
-    #     tokenizer.pad_token_id = tokenizer.eos_token_id
-    #     tokenizer.bos_token_id = tokenizer.eos_token_id
-    #     tokenizer.padding_side = "left"
     else:
         print(model_name)
         raise Exception("Unsupported model type.")
@@ -367,7 +354,7 @@ def main():
         add_completions_pgd=add_completions_pgd,  # Whether to add PGD over the completion tokens
         N_checkpoints=10,
         languages = set(sft_langs).intersection(set(training_langs)),
-        sequential=True
+        sequential=sequential
     )
 
 

@@ -22,7 +22,6 @@ which python
 
 export WANDB_MODE=disabled
 
-# arg1_values=('Accountant' 'Astronaut' 'Biologist' 'Carpenter' 'Civil Engineer' 'Clerk' 'Detective' 'Editor' 'Firefighter' 'Interpreter' 'Manager' 'Nutritionist' 'Paramedic' 'Pharmacist' 'Physicist' 'Pilot' 'Reporter' 'Security Guard' 'Scientist' 'Web Developer')
 # arg1_values=('es' 'zh' 'ko' 'ar' 'el' 'sw' 'am' 'en')
 # arg2_values=('es' 'zh' 'ko' 'ar' 'el' 'sw' 'am' 'en')
 
@@ -34,6 +33,6 @@ pip install -r requirements.txt
 bash install_tasks_from_github.sh
 
 cd notebooks
-python jailbreaks_script.py --languages_train en es ko ar sw am --languages_sft en es ko ar sw am
+python jailbreaks_script.py --languages_train en es ko ar sw am --languages_sft en es ko ar sw am --sequential
 
 # python notebooks/jailbreaks_script.py

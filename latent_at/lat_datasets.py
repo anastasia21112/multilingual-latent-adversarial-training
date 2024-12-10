@@ -1017,18 +1017,22 @@ class MultiLanguageDataset(Dataset):
 
 class SynchronizedDataLoader:
     def __init__(self, dataloader_1, dataloader_2, languages):
+       
         self.dataloader_1 = dataloader_1
         self.dataloader_2 = dataloader_2
         self.languages = languages
         self.language_iter = itertools.cycle(languages)
         self.dataloader_1_iter = iter(dataloader_1)
         self.dataloader_2_iter = iter(dataloader_2)
+        self.languages = []
+       
 
     def __iter__(self):
         return self
 
     def __next__(self):
         language = next(self.language_iter)
+        
         batch_1 = self._get_batch_for_language(self.dataloader_1_iter, language)
         batch_2 = self._get_batch_for_language(self.dataloader_2_iter, language)
         return batch_1, batch_2

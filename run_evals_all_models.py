@@ -51,12 +51,12 @@ tokenizer = AutoTokenizer.from_pretrained(model_name)
 # run_evals(model)
 
 # print("English + Vietnamese TLAT")
-# model.load_adapter("adunca08/EnglishVietnameseTest")
+# model.load_adapter("adunca08/FixedEnglishVietnamese")
 # model.enable_adapters()
 # run_evals(model)
 
 print("Multilingual TLAT")
-model.load_adapter("adunca08/MultilingualTrainSFT")
+model.load_adapter("adunca08/FixedMultingualAll")
 model.enable_adapters()
 run_evals(model)
 
