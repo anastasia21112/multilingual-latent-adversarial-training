@@ -23,7 +23,7 @@ To run evals:
 Multilingual Training Datasets: [Hugging Face Collection produced by us](https://huggingface.co/collections/adunca08/nlp-final-project-67435bcd2f6a94e877730db0)
 Multilingual SFT Datasets: [Hugging Face Collection produced by us]()
 ## ORIGINAL PAPER: 
-# Latent Adversarial Training Improves Robustness to Persistent Harmful Behaviors in LLMs
+Latent Adversarial Training Improves Robustness to Persistent Harmful Behaviors in LLMs
 
 Abhay Sheshadri,* [asheshadri31@gatech.edu](asheshadri31@gatech.edu); 
 Aidan Ewart,* [aidanprattewart@gmail.com](aidanprattewart@gmail.com); 
