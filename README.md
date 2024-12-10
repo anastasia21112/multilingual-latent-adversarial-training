@@ -1,8 +1,8 @@
  ## NLP FINAL PROJECT: 
 Anastasia Dunca, *[adunca08@mit.edu](adunca08@mit.edu);
-Maanas Sharma, *[maanas@mit.edu](maanas@mit.edu);
 Olivia Munoz, *[munoz03@mit.edu](munoz03@mit.edu);
 Victor Rosales, *[vrosales@mit.edu](vrosales@mit.edu);
+Maanas Sharma, *[maanas@mit.edu](maanas@mit.edu);
 
 To run an experiment: 
 - navigate to the get_resps.sh file 
