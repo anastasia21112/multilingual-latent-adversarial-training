@@ -22,6 +22,14 @@ To run evals:
 ## DATA: 
 Multilingual Training Datasets: [Hugging Face Collection produced by us](https://huggingface.co/collections/adunca08/nlp-final-project-67435bcd2f6a94e877730db0)
 Multilingual SFT Datasets: [Hugging Face Collection produced by us]()
+
+## MODELS: 
+Try out the models by loading the base [LLaMA-2-7b](https://huggingface.co/meta-llama/Llama-2-7b) and attaching an adaptor. 
+* [English only TLAT](https://huggingface.co/adunca08/EnglishOnlyTLAT)
+* [Multilingual Train + SFT](https://huggingface.co/adunca08/FixedMultingualAll)
+* [Multilingual Train + English SFT](https://huggingface.co/adunca08/MultilingualTrainEnglishSFT)
+* [English/Vietnamese Train + English/Vietnamese SFT](https://huggingface.co/adunca08/FixedEnglishVietnamese)
+  
 ## ORIGINAL PAPER: 
 Latent Adversarial Training Improves Robustness to Persistent Harmful Behaviors in LLMs
 
