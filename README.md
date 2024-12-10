@@ -20,8 +20,8 @@ To run evals:
 - output is written on the output file in the logs document
 
 ## DATA: 
-# Multilingual Training Datasets: [Hugging Face Collection produced by us]https://huggingface.co/collections/adunca08/nlp-final-project-67435bcd2f6a94e877730db0
-# Multilingual SFT Datasets: [Hugging Face Collection produced by us]
+Multilingual Training Datasets: [Hugging Face Collection produced by us](https://huggingface.co/collections/adunca08/nlp-final-project-67435bcd2f6a94e877730db0)
+Multilingual SFT Datasets: [Hugging Face Collection produced by us]()
 ## ORIGINAL PAPER: 
 # Latent Adversarial Training Improves Robustness to Persistent Harmful Behaviors in LLMs
 
