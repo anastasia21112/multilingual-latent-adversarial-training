@@ -12,7 +12,7 @@ from transformers import AutoTokenizer
 load_dotenv()
 hf_access_token = os.getenv("HUGGINGFACE_API_KEY")
 
-# ADDED BY NLP PROJECT GROUP
+# MULTILANGUAGEDATASET AND SYNCHRONIZEDDATALOADER CLASSES ADDED BY NLP PROJECT GROUP
 class MultiLanguageDataset(Dataset):
     def __init__(self, language_datasets, tokenizer):
         """
@@ -118,6 +118,8 @@ class SynchronizedDataLoader:
 
     def _check_batch_language(self, batch, language):
         return language in batch[0]
+
+
 
 
 class LatentAdversarialTrainingDataset(Dataset):
