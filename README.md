@@ -31,6 +31,10 @@ Try out the models by loading the base [LLaMA-2-7b](https://huggingface.co/meta-
 * [Multilingual Train + SFT](https://huggingface.co/adunca08/FixedMultingualAll)
 * [Multilingual Train + English SFT](https://huggingface.co/adunca08/MultilingualTrainEnglishSFT)
 * [English/Vietnamese Train + English/Vietnamese SFT](https://huggingface.co/adunca08/FixedEnglishVietnamese)
+
+## REPOS: 
+* [T-LAT](https://github.com/aengusl/latent-adversarial-training)
+* [Evaluation Tasks](https://github.com/magikarp01/tasks)
   
 ## ORIGINAL PAPER: 
 Latent Adversarial Training Improves Robustness to Persistent Harmful Behaviors in LLMs
