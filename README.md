@@ -8,15 +8,14 @@ To run an experiment:
 - navigate to the get_resps.sh file 
 - provide arguments for the languages you want to train/SFT on (can be en, es, ko, el, cm, vi, am, ar, sw)
 - do you want the training/SFT to be sequential (same language to train and do SFT on one after the other?, if so, add --sequential)
-- submit the job to the cluster with sbatch get_resps.sh
+- run the get_resps.sh file
 - output is written to the logs folder 
 
 To run evals: 
 - navigate to the run_evals_all_models.py file 
 - load your adaptor file with the code in the file
 - enable your adaptor for the base model (in this case LLaMA-2-7b)
-- go to run_evals.sh
-- submit the job to the cluster with sbatch run_evals.sh
+- go to run_evals.sh and run it
 - output is written on the output file in the logs document
 
 ## DATA: 
