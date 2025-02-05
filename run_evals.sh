@@ -2,7 +2,7 @@
 
 # TODO add output logs, add setup bash to run script thing
 
-#SBATCH --job-name="get_resps"
+#SBATCH --job-name="multi_eval"
 #SBATCH --output=logs/output_%A_%a.txt
 #SBATCH --time=2-00:00 # must set end time, default 2 days
 #SBATCH -p healthyml
@@ -31,7 +31,7 @@ export WANDB_MODE=disabled
 pip install -r requirements.txt
 bash install_tasks_from_github.sh
 
-cd notebooks
-python eval_script.py
+# cd notebooks
+python run_evals_all_models.py
 
 # python notebooks/jailbreaks_script.py

@@ -2,8 +2,13 @@
 
 # TODO add output logs, add setup bash to run script thing
 
+<<<<<<< HEAD
 #SBATCH --job-name="get_resps"
 #SBATCH --output=output_%A_%a.txt
+=======
+#SBATCH --job-name="multi_multi"
+#SBATCH --output=logs/output_%A_%a.txt
+>>>>>>> b08a41074b94cbd143f4a3cc922697c899bd32a1
 #SBATCH --time=2-00:00 # must set end time, default 2 days
 #SBATCH -p healthyml
 #SBATCH -q healthyml-main
@@ -22,7 +27,6 @@ which python
 
 export WANDB_MODE=disabled
 
-# arg1_values=('Accountant' 'Astronaut' 'Biologist' 'Carpenter' 'Civil Engineer' 'Clerk' 'Detective' 'Editor' 'Firefighter' 'Interpreter' 'Manager' 'Nutritionist' 'Paramedic' 'Pharmacist' 'Physicist' 'Pilot' 'Reporter' 'Security Guard' 'Scientist' 'Web Developer')
 # arg1_values=('es' 'zh' 'ko' 'ar' 'el' 'sw' 'am' 'en')
 # arg2_values=('es' 'zh' 'ko' 'ar' 'el' 'sw' 'am' 'en')
 

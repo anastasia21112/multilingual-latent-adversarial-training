@@ -12,6 +12,115 @@ from transformers import AutoTokenizer
 load_dotenv()
 hf_access_token = os.getenv("HUGGINGFACE_API_KEY")
 
+# MULTILANGUAGEDATASET AND SYNCHRONIZEDDATALOADER CLASSES ADDED BY NLP PROJECT GROUP
+class MultiLanguageDataset(Dataset):
+    def __init__(self, language_datasets, tokenizer):
+        """
+        A dataset that combines multiple language datasets, ensuring each batch contains data from only one language.
+        Args:
+            language_datasets (dict): A dictionary where keys are language codes and values are datasets (lists of strings).
+        """
+        self.language_datasets = language_datasets
+        self.languages = list(language_datasets.keys())  # List of languages
+        self.tokenizer = tokenizer
+
+    def __len__(self):
+        """
+        Return the total number of samples across all languages.
+        """
+        return sum(len(dataset) for dataset in self.language_datasets.values())
+
+    def __getitem__(self, idx):
+        """
+        Retrieve a data sample, ensuring each batch comes from a single language.
+        """
+        lang_idx = 0
+        while idx >= len(self.language_datasets[self.languages[lang_idx]]):
+            idx -= len(self.language_datasets[self.languages[lang_idx]])
+            lang_idx += 1
+
+        language = self.languages[lang_idx]
+        return self.language_datasets[language][idx]
+    
+    def get_language_batches(self, batch_size):
+        """
+        Generate batches of data from different languages, each batch coming from a single language.
+        """
+
+        languages = self.languages[:]
+        batches = []
+        for lang in languages:
+            dataset = self.language_datasets[lang]
+            
+            dataloader = DataLoader(
+                dataset,  # Hugging Face dataset
+                batch_size=batch_size,  # Specify the batch size
+                shuffle=True,  # Shuffle the dataset for better training results
+                drop_last=True,  # Drop the last incomplete batch (optional)
+                collate_fn=LatentAdversarialTrainingDataCollator(
+                self.tokenizer.pad_token_id,
+                truncate_length=2048
+            )
+            )
+            
+            # Iterate over the DataLoader and collect batches
+            for batch in dataloader:
+                batches.append((lang, batch))
+    
+        return batches
+
+    def create_latent_adversarial_dataloader(self):
+
+        """create latent adversarial loader for the multilingual set"""
+        # First, create the batches by language
+        language_batches = self.get_language_batches(batch_size=16)
+
+        # Create a DataLoader for each language batch
+        dataloader = DataLoader(
+            language_batches,  # The list of batches (tuples of language and batch)
+            batch_size=1,       # We are processing the batches one by one (already split by language)
+            shuffle=True,
+        )
+        return dataloader
+
+class SynchronizedDataLoader:
+    """dataset for sequential sft and training (each language is paired)"""
+
+    def __init__(self, dataloader_1, dataloader_2, languages):
+       
+        self.dataloader_1 = dataloader_1
+        self.dataloader_2 = dataloader_2
+        self.languages = languages
+        self.language_iter = itertools.cycle(languages)
+        self.dataloader_1_iter = iter(dataloader_1)
+        self.dataloader_2_iter = iter(dataloader_2)
+        self.languages = []
+       
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        language = next(self.language_iter)
+        
+        batch_1 = self._get_batch_for_language(self.dataloader_1_iter, language)
+        batch_2 = self._get_batch_for_language(self.dataloader_2_iter, language)
+        return batch_1, batch_2
+
+    def _get_batch_for_language(self, dataloader_iter, language):
+        while True:
+            try:
+                batch = next(dataloader_iter)
+                if self._check_batch_language(batch, language):
+                    return batch
+            except StopIteration:
+                break
+
+    def _check_batch_language(self, batch, language):
+        return language in batch[0]
+
+
+
 
 class LatentAdversarialTrainingDataset(Dataset):
 
@@ -917,130 +1026,3 @@ class WMDPLATDataCollator:
             "adv_labels_mask": adv_labels_mask,
         }
     
-# AD CHANGE
-class MultiLanguageDataset(Dataset):
-    def __init__(self, language_datasets, tokenizer):
-        """
-        A dataset that combines multiple language datasets, ensuring each batch contains data from only one language.
-        Args:
-            language_datasets (dict): A dictionary where keys are language codes and values are datasets (lists of strings).
-        """
-        self.language_datasets = language_datasets
-        self.languages = list(language_datasets.keys())  # List of languages
-        self.tokenizer = tokenizer
-
-    def __len__(self):
-        """
-        Return the total number of samples across all languages.
-        """
-        return sum(len(dataset) for dataset in self.language_datasets.values())
-
-    def __getitem__(self, idx):
-        """
-        Retrieve a data sample, ensuring each batch comes from a single language.
-        """
-        lang_idx = 0
-        while idx >= len(self.language_datasets[self.languages[lang_idx]]):
-            idx -= len(self.language_datasets[self.languages[lang_idx]])
-            lang_idx += 1
-
-        language = self.languages[lang_idx]
-        return self.language_datasets[language][idx]
-    
-    def get_language_batches(self, batch_size):
-        """
-        Generate batches of data from different languages, each batch coming from a single language.
-        """
-
-        languages = self.languages[:]
-        batches = []
-        for lang in languages:
-            dataset = self.language_datasets[lang]
-            
-            dataloader = DataLoader(
-                dataset,  # Hugging Face dataset
-                batch_size=batch_size,  # Specify the batch size
-                shuffle=True,  # Shuffle the dataset for better training results
-                drop_last=True,  # Drop the last incomplete batch (optional)
-                collate_fn=LatentAdversarialTrainingDataCollator(
-                self.tokenizer.pad_token_id,
-                truncate_length=2048
-            )
-            )
-            
-            # Iterate over the DataLoader and collect batches
-            for batch in dataloader:
-                # Each `batch` will be a dictionary of the form:
-                # {"adv_tokens": tensor, "def_tokens": tensor, ...}
-                # print(f"Language: {lang}, Batch: {batch}")
-                batches.append((lang, batch))
-    
-        #     dataset = self.language_datasets[lang]
-        #     print(dataset)
-        #     for i in range(0, len(dataset), batch_size):
-        #         batch = dataset[i:i + batch_size]
-        #         print("batch: ", batch)
-        #         batches.append((lang, batch))  
-
-      
-        
-        return batches
-
-    def create_latent_adversarial_dataloader(self):
-        # First, create the batches by language
-        language_batches = self.get_language_batches(batch_size=16)
-
-        # Define the custom collator
-        # collator = LatentAdversarialTrainingDataCollator(
-        #     pad_token_id=self.tokenizer.pad_token_id,
-        #     truncate_length=2048
-        # )
-
-        # Create a DataLoader for each language batch
-        dataloader = DataLoader(
-            language_batches,  # The list of batches (tuples of language and batch)
-            batch_size=1,       # We are processing the batches one by one (already split by language)
-            shuffle=True,
-            # shuffle=False,
-            # drop_last=True,
-            # collate_fn=collator  # Use the custom collator to process the batches
-        )
-
-        # for batch in dataloader: 
-        #     batch[1]['adv_labels_mask'] = batch[1]['adv_labels_mask'].squeeze(dim=0)
-        #     batch[1]['def_labels_mask'] = batch[1]['def_labels_mask'].squeeze(dim=0)
-        #     batch[1]['prompt_mask'] = batch[1]['prompt_mask'].squeeze(dim=0)
-        #     batch[1]["adv_tokens"] = batch[1]['adv_tokens'].squeeze(dim=0),
-        #     batch[1]["def_tokens"] = batch[1]['def_tokens'].squeeze(dim=0),
-            
-        return dataloader
-
-class SynchronizedDataLoader:
-    def __init__(self, dataloader_1, dataloader_2, languages):
-        self.dataloader_1 = dataloader_1
-        self.dataloader_2 = dataloader_2
-        self.languages = languages
-        self.language_iter = itertools.cycle(languages)
-        self.dataloader_1_iter = iter(dataloader_1)
-        self.dataloader_2_iter = iter(dataloader_2)
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        language = next(self.language_iter)
-        batch_1 = self._get_batch_for_language(self.dataloader_1_iter, language)
-        batch_2 = self._get_batch_for_language(self.dataloader_2_iter, language)
-        return batch_1, batch_2
-
-    def _get_batch_for_language(self, dataloader_iter, language):
-        while True:
-            try:
-                batch = next(dataloader_iter)
-                if self._check_batch_language(batch, language):
-                    return batch
-            except StopIteration:
-                break
-
-    def _check_batch_language(self, batch, language):
-        return language in batch[0]
