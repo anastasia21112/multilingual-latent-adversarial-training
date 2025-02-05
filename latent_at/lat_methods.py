@@ -73,7 +73,7 @@ def projected_gradient_descent(
         print(attack_mask.shape)
         create_adversary=lambda x: GDAdversary(
             # dim=model.config.hidden_size,
-            dim=4096,
+            dim=3584,
             device=device,
             epsilon=epsilon,
             attack_mask = attack_mask.to(device),
@@ -82,7 +82,7 @@ def projected_gradient_descent(
     else:
         create_adversary=lambda x: GDAdversary(
             # dim=model.config.hidden_size,
-            dim=4096,
+            dim=3584,
             device=device,
             epsilon=epsilon,
             attack_mask = batch["prompt_mask"].to(device) if "prompt_mask" in batch else batch["adv_labels_mask"].to(device),

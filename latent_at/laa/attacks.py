@@ -61,6 +61,7 @@ class GDAdversary(torch.nn.Module):
                     self.attack.data = self.attack.data.to(self.device)
                     self.attack_mask = self.attack_mask.to(self.device)
 
+
             perturbed_acts = x[self.attack_mask[:, :x.shape[1]]] + self.attack[self.attack_mask[:, :x.shape[1]]].to(x.dtype)
             x[self.attack_mask[:, :x.shape[1]]] = perturbed_acts
 

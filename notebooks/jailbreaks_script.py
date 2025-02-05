@@ -56,52 +56,44 @@ def main():
     torch.cuda.reset_peak_memory_stats()
     torch.cuda.empty_cache()
 
-    use_llama2 = True
-    # model_name = "BAAI/bge-multilingual-gemma2"
-    # adv_loss_coefs = {"toward": 0.5, "away": 0.5,}
-    # def_loss_coefs = {"kl": 0.1, "toward": 0.5, "away": 0.5,}
-    # inner_learning_rate = 1e-3
-    # outer_learning_rate = 8e-5
-    # epsilon = 6.0
-    # add_completions_pgd = True
+    # use_llama2 = True
+
+    model_name = "lightblue/DeepSeek-R1-Distill-Qwen-7B-Multilingual"
+    adv_loss_coefs = {"toward": 0.5, "away": 0.5,}
+    def_loss_coefs = {"kl": 0.1, "toward": 0.5, "away": 0.5,}
+    inner_learning_rate = 1e-3
+    outer_learning_rate = 8e-5
+    epsilon = 6.0
+    add_completions_pgd = True
     
-    if use_llama2:  # use llama2-7b
-        model_name = "meta-llama/Llama-2-7b-chat-hf"
-        adv_loss_coefs = {"toward": 0.5, "away": 0.5,}
-        def_loss_coefs = {"sft": 1.5, "toward": 0.5, "away": 0.5,}
-        inner_learning_rate = 5e-2
-        outer_learning_rate = 2e-5
-        epsilon = 6.0
-        add_completions_pgd = False
-    else: # use llama3-8b
-        model_name = "meta-llama/Meta-Llama-3-8B-Instruct"
-        adv_loss_coefs = {"toward": 0.5, "away": 0.5,}
-        def_loss_coefs = {"kl": 0.1, "toward": 0.5, "away": 0.5,}
-        inner_learning_rate = 1e-3
-        outer_learning_rate = 8e-5
-        epsilon = 6.0
-        add_completions_pgd = True
+    # if use_llama2:  # use llama2-7b
+    #     model_name = "meta-llama/Llama-2-7b-chat-hf"
+    #     adv_loss_coefs = {"toward": 0.5, "away": 0.5,}
+    #     def_loss_coefs = {"sft": 1.5, "toward": 0.5, "away": 0.5,}
+    #     inner_learning_rate = 5e-2
+    #     outer_learning_rate = 2e-5
+    #     epsilon = 6.0
+    #     add_completions_pgd = False
+    # else: # use llama3-8b
+    #     model_name = "meta-llama/Meta-Llama-3-8B-Instruct"
+    #     adv_loss_coefs = {"toward": 0.5, "away": 0.5,}
+    #     def_loss_coefs = {"kl": 0.1, "toward": 0.5, "away": 0.5,}
+    #     inner_learning_rate = 1e-3
+    #     outer_learning_rate = 8e-5
+    #     epsilon = 6.0
+    #     add_completions_pgd = True
 
     model_dtype = torch.bfloat16
 
     device = "cuda"
     run_start_evals = False
 
-    # model_name = "neulab/Pangea-7B-hf"
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         token=hf_access_token,
         torch_dtype=model_dtype
     ).to(device)
 
-    # model = LlavaNextForConditionalGeneration.from_pretrained(
-    #         model_name, 
-    #         torch_dtype=torch.float16,
-    #         # model_dtype = torch.bfloat16,
-    #     ).to(device)
-    # processor = AutoProcessor.from_pretrained("neulab/Pangea-7B-hf")
-    # model.resize_token_embeddings(len(processor.tokenizer))
-    # model_type = "qwen"
     if "Llama-2" in model_name:
         model_type = "llama2"
         tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -117,16 +109,11 @@ def main():
         tokenizer = AutoTokenizer.from_pretrained("HuggingFaceH4/zephyr-7b-beta")
         tokenizer.pad_token_id = tokenizer.unk_token_id
         tokenizer.padding_side = "left"
-    elif "BAAI" in model_name: 
-        model_type = "multilingual"
-        tokenizer = AutoTokenizer.from_pretrained("BAAI/bge-multilingual-gemma2")
-        tokenizer.pad_token_id = tokenizer.eos_token_id
+    elif "Qwen" in model_name:
+        model_type = "qwen"
+        tokenizer = AutoTokenizer.from_pretrained("lightblue/DeepSeek-R1-Distill-Qwen-7B-Multilingual", pad_token='<|endoftext|>')
+        # tokenizer.pad_token_id = tokenizer.eos_token_id # doesn't exist i think?
         tokenizer.padding_side = "left"
-    # elif "neulab/Pangea-7B-hf" in model_name:
-    #     tokenizer = processor.tokenizer
-    #     tokenizer.pad_token_id = tokenizer.eos_token_id
-    #     tokenizer.bos_token_id = tokenizer.eos_token_id
-    #     tokenizer.padding_side = "left"
     else:
         print(model_name)
         raise Exception("Unsupported model type.")
@@ -199,7 +186,7 @@ def main():
 
     If a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. If you don't know the answer to a question, please don't share false information."""
 
-    if model_type == "llama2" or model_type == "qwen": # LLama 2 Chat Formatting
+    if model_type == "llama2": # LLama 2 Chat Formatting
         use_tokenizer_template = True
         custom_prompt_template = None
         custom_completion_template = None
@@ -207,6 +194,16 @@ def main():
         use_tokenizer_template = False
         custom_prompt_template = f"<|start_header_id|>system<|end_header_id|>\n\n{sys_prompt}<|eot_id|>"+"<|start_header_id|>user<|end_header_id|>\n\n{prompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
         custom_completion_template="{completion}"
+    elif model_type == "qwen":  # Qwen chat formatting
+            use_tokenizer_template = False
+            custom_prompt_template = (
+                "<|im_start|>system\n"
+                "{system_prompt}<|im_end|>\n"
+                "<|im_start|>user\n"
+                "{prompt}<|im_end|>\n"
+                "<|im_start|>assistant\n"
+            )
+            custom_completion_template = "{completion}<|im_end|>"
     else:  # Zephyr chat formatting
         sys_prompt=""
         use_tokenizer_template = False
@@ -351,7 +348,9 @@ def main():
         sft_dataloader=sft_dataloader,  # dataloader for supervised finetuning
         adv_loss_coefs=adv_loss_coefs,  # adversary's loss coefs
         def_loss_coefs=def_loss_coefs,  # model's loss coefs
-        pgd_layers=["embedding", 8, 16, 24, 30],  # what layers to attack
+        pgd_layers=["embedding", 8, 16, 24, 
+                    # 30 # removing for qwen
+                ],  # what layers to attack
         pgd_iterations_per_step=16,  # how many steps of projected gradient descent to do
         model_layers=list(range(0, model.config.num_hidden_layers)),  # model layers to train
         epsilon=epsilon,  # attack l2 constraint
