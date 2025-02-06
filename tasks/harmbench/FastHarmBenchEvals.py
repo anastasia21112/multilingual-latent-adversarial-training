@@ -31,6 +31,9 @@ def run_attack_evals(model, device="cuda", model_type="llama2", func_categories=
         tokenizer = AutoTokenizer.from_pretrained("meta-llama/Meta-Llama-3-8B-Instruct")
         tokenizer.pad_token_id = tokenizer.eos_token_id
         tokenizer.padding_side = "left"
+    elif model_type == "qwen":
+        tokenizer = AutoTokenizer.from_pretrained("lightblue/DeepSeek-R1-Distill-Qwen-7B-Multilingual", pad_token='<|endoftext|>')
+        tokenizer.padding_side = "left"
 
     harmbench_data_standard = HarmBenchTask(tokenizer=tokenizer, gen_batch_size=min(25, max_gen_batch_size), cls_batch_size=8, device=device,
                                             data_name="harmbench_text", func_categories=func_categories, train_test_split=train_test_split,
@@ -121,10 +124,12 @@ def run_general_evals(model, model_type="llama2", temperature=0, language=None, 
         tokenizer = AutoTokenizer.from_pretrained("EleutherAI/pythia-2.8B")
         tokenizer.pad_token_id = tokenizer.eos_token_id
         tokenizer.padding_side = "left"
-    
     elif model_type == "gemma":
         tokenizer = AutoTokenizer.from_pretrained("google/gemma-7b")
         tokenizer.pad_token_id = tokenizer.eos_token_id
+        tokenizer.padding_side = "left"
+    elif model_type == "qwen":
+        tokenizer = AutoTokenizer.from_pretrained("lightblue/DeepSeek-R1-Distill-Qwen-7B-Multilingual", pad_token='<|endoftext|>')
         tokenizer.padding_side = "left"
 
     accuracy_dict = {}

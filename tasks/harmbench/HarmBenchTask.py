@@ -75,9 +75,21 @@ llama3_safety_prompt = "<|start_header_id|>user<|end_header_id|\n\n{behavior}<|e
 
 zephyr_safety_prompt =  """<|user|>\n{behavior}</s> \n <|assistant|>\n""" # """[INST] {behavior} [\INST]"""  #
 
+qwen_safety_prompt = (
+    "<|im_start|>system\n"
+    f"{sys_prompt}\n"
+    "<|im_end|>\n"
+    "<|im_start|>user\n"
+    "{behavior}<|im_end|>\n"
+    "<|im_start|>assistant\n"
+)
+
+
+
 llama2_format_fn = lambda x: llama2_safety_prompt.format(behavior=x)
 llama3_format_fn = lambda x: llama3_safety_prompt.format(behavior=x)
 zephyr_format_fn = lambda x: zephyr_safety_prompt.format(behavior=x)
+qwen_format_fn = lambda x: qwen_safety_prompt.format(behavior=x)
 
 def generate_random_string(length=20):
     characters = string.ascii_letters + string.digits
@@ -380,6 +392,8 @@ class HarmBenchTask(Task):
                 behavior_modify_fn = llama3_format_fn
             elif behavior_modify_fn == "zephyr":
                 behavior_modify_fn = zephyr_format_fn
+            elif behavior_modify_fn == "qwen":
+                behavior_modify_fn = qwen_format_fn
         # if cls is a string, don't need to move model devices
         if isinstance(cls, str) and "gpt" in cls or cls == "simple":
             move_model_device = False
