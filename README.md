@@ -1,4 +1,4 @@
- ## NLP FINAL PROJECT: 
+ ## MULBERE: 
 Anastasia Dunca, *[adunca08@mit.edu](adunca08@mit.edu);
 Olivia Munoz, *[munoz03@mit.edu](munoz03@mit.edu);
 Victor Rosales, *[vrosales@mit.edu](vrosales@mit.edu);
